@@ -32,6 +32,26 @@ async function createTransaction(req, res) {
         })
     }
 
+
+
+    // ✅ amount must be positive
+    if (amount <= 0) {
+        return res.status(400).json({
+            message: "Amount must be greater than zero"
+        })
+    }
+
+    // ✅ prevent self transfer
+    if (fromAccount === toAccount) {
+        return res.status(400).json({
+            message: "Cannot transfer to the same account"
+        })
+    }
+
+
+
+
+
     const fromUserAccount = await accountModel.findOne({
         _id: fromAccount,
     })
@@ -45,6 +65,14 @@ async function createTransaction(req, res) {
             message: "Invalid fromAccount or toAccount"
         })
     }
+
+    // 🔐 SECURITY CHECK — sender must own fromAccount
+    if (fromUserAccount.user.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+            message: "You are not authorized to transfer from this account"
+        })
+    }
+
 
     /**
      * 2. Validate idempotency key
@@ -155,50 +183,48 @@ async function createTransaction(req, res) {
         })
 
     }
-    
+
 
     /**
  * 10. Send email notification
  */
-try {
-  const senderAccount = await accountModel
-    .findById(fromAccount)
-    .populate("user")
+    try {
+        const senderAccount = await accountModel
+            .findById(fromAccount)
+            .populate("user")
 
-  const receiverAccount = await accountModel
-    .findById(toAccount)
-    .populate("user")
+        const receiverAccount = await accountModel
+            .findById(toAccount)
+            .populate("user")
 
-  console.log("Sender:", senderAccount?.user?.email)
-  console.log("Receiver:", receiverAccount?.user?.email)
+        console.log("Sender:", senderAccount?.user?.email)
+        console.log("Receiver:", receiverAccount?.user?.email)
 
-  // DEBIT mail to sender
-  if (senderAccount?.user?.email) {
-    await emailService.sendTransactionEmail(
-      senderAccount.user.email,
-      senderAccount.user.name,
-      amount,
-      toAccount,
-      "DEBIT"
-    )
-  }
+        // DEBIT mail to sender
+        if (senderAccount?.user?.email) {
+            await emailService.sendTransactionEmail(
+                senderAccount.user.email,
+                senderAccount.user.name,
+                amount,
+                toAccount,
+                "DEBIT"
+            )
+        }
 
-  // CREDIT mail to receiver
-  if (receiverAccount?.user?.email) {
-    await emailService.sendTransactionEmail(
-      receiverAccount.user.email,
-      receiverAccount.user.name,
-      amount,
-      fromAccount,
-      "CREDIT"
-    )
-  }
+        // CREDIT mail to receiver
+        if (receiverAccount?.user?.email) {
+            await emailService.sendTransactionEmail(
+                receiverAccount.user.email,
+                receiverAccount.user.name,
+                amount,
+                fromAccount,
+                "CREDIT"
+            )
+        }
 
-} catch (err) {
-  console.error("Email sending failed:", err)
-}
-
-
+    } catch (err) {
+        console.error("Email sending failed:", err)
+    }
 
 
 
@@ -206,10 +232,12 @@ try {
 
 
 
-return res.status(201).json({
-  message: "Transaction completed successfully",
-  transaction: transaction
-})
+
+
+    return res.status(201).json({
+        message: "Transaction completed successfully",
+        transaction: transaction
+    })
 
 }
 
