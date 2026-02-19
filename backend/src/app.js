@@ -1,5 +1,6 @@
 const express = require("express")
 const cookieParser = require("cookie-parser")
+const cors = require("cors")
 
 const app = express()
 
@@ -10,6 +11,15 @@ const transactionRoutes = require("./routes/transaction.routes")
 //Routes//
 
 app.use(express.json())
+
+
+app.use(cors({
+    origin: true,
+    credentials: true
+}));
+
+
+
 app.use(cookieParser())
 
 //User Routes//
