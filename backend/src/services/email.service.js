@@ -62,11 +62,11 @@ async function sendTransactionEmail(userEmail, name, amount, account, direction 
     const isCredit = direction === "CREDIT";
     const subject = isCredit ? 'Amount Received Successfully!' : 'Transaction Successful!';
     const text = isCredit
-      ? `Hello ${name},\n\nYou have received $${amount} in your account from account ${account}.\n\nBest regards,\nThe MoneyLedger Team`
-      : `Hello ${name},\n\nYour transaction of $${amount} to account ${account} was successful.\n\nBest regards,\nThe MoneyLedger Team`;
+      ? `Hello ${name},\n\nYou have received ₹${amount} in your account from account ${account}.\n\nBest regards,\nThe MoneyLedger Team`
+      : `Hello ${name},\n\nYour transaction of ₹${amount} to account ${account} was successful.\n\nBest regards,\nThe MoneyLedger Team`;
     const html = isCredit
-      ? `<p>Hello ${name},</p><p>You have received $${amount} in your account from account ${account}.</p><p>Best regards,<br>The MoneyLedger Team</p>`
-      : `<p>Hello ${name},</p><p>Your transaction of $${amount} to account ${account} was successful.</p><p>Best regards,<br>The MoneyLedger Team</p>`;
+      ? `<p>Hello ${name},</p><p>You have received ₹${amount} in your account from account ${account}.</p><p>Best regards,<br>The MoneyLedger Team</p>`
+      : `<p>Hello ${name},</p><p>Your transaction of ₹${amount} to account ${account} was successful.</p><p>Best regards,<br>The MoneyLedger Team</p>`;
 
     await sendEmail(userEmail, subject, text, html);
 }
