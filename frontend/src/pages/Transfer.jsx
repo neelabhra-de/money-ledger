@@ -14,16 +14,31 @@ export default function Transfer() {
   const onTransfer = async (payload) => {
     setLoading(true);
     setMessage("");
+
     try {
       const res = await api.post("/api/transactions", payload);
       setMessage(res?.data?.message || "Transfer completed.");
-      await refresh();
+
+      try {
+        await refresh();
+      } catch {
+        setMessage((prev) =>
+          `${prev} (Balance refresh failed. Please reload dashboard.)`
+        );
+      }
     } catch (err) {
-      setMessage(err?.response?.data?.message || "Transfer failed");
+      if (err.code === "ECONNABORTED") {
+        setMessage(
+          "Request timed out. Transfer may still be processing. Check dashboard balance."
+        );
+      } else {
+        setMessage(err?.response?.data?.message || "Transfer failed");
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <>
