@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_BASE_URL || "https://money-ledger.onrender.com",
   withCredentials: true,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 api.interceptors.request.use((config) => {
