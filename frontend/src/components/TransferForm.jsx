@@ -23,7 +23,6 @@ export default function TransferForm({ accounts, onSubmit, loading }) {
       amount: Number(amount),
       idempotencyKey,
     });
-    setIdempotencyKey(makeIdempotencyKey());
   };
 
   return (

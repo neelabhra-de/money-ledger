@@ -32,25 +32,19 @@ async function createTransaction(req, res) {
         })
     }
 
-
-
-    // ✅ amount must be positive
+    // amount must be positive
     if (amount <= 0) {
         return res.status(400).json({
             message: "Amount must be greater than zero"
         })
     }
 
-    // ✅ prevent self transfer
+    // prevent self transfer
     if (fromAccount === toAccount) {
         return res.status(400).json({
             message: "Cannot transfer to the same account"
         })
     }
-
-
-
-
 
     const fromUserAccount = await accountModel.findOne({
         _id: fromAccount,
@@ -66,13 +60,12 @@ async function createTransaction(req, res) {
         })
     }
 
-    // 🔐 SECURITY CHECK — sender must own fromAccount
+    // SECURITY CHECK: sender must own fromAccount
     if (fromUserAccount.user.toString() !== req.user._id.toString()) {
         return res.status(403).json({
             message: "You are not authorized to transfer from this account"
         })
     }
-
 
     /**
      * 2. Validate idempotency key
@@ -132,13 +125,13 @@ async function createTransaction(req, res) {
     }
 
     let transaction;
+    let session;
+
     try {
-
-
         /**
          * 5. Create transaction (PENDING)
          */
-        const session = await mongoose.startSession()
+        session = await mongoose.startSession()
         session.startTransaction()
 
         transaction = (await transactionModel.create([{
@@ -149,18 +142,14 @@ async function createTransaction(req, res) {
             status: "PENDING"
         }], { session }))[0]
 
-        const debitLedgerEntry = await ledgerModel.create([{
+        await ledgerModel.create([{
             account: fromAccount,
             amount: amount,
             transaction: transaction._id,
             type: "DEBIT"
         }], { session })
 
-        await (() => {
-            return new Promise((resolve) => setTimeout(resolve, 15 * 1000));
-        })()
-
-        const creditLedgerEntry = await ledgerModel.create([{
+        await ledgerModel.create([{
             account: toAccount,
             amount: amount,
             transaction: transaction._id,
@@ -173,72 +162,63 @@ async function createTransaction(req, res) {
             { session }
         )
 
-
         await session.commitTransaction()
         session.endSession()
     } catch (error) {
+        if (session) {
+            try {
+                await session.abortTransaction()
+            } catch (abortError) {
+                // ignore abort error, original error is more important
+            }
+            session.endSession()
+        }
 
-        return res.status(400).json({
-            message: "Transaction is Pending due to some issue, please retry after sometime",
+        if (transaction?._id) {
+            await transactionModel.findByIdAndUpdate(transaction._id, { status: "FAILED" })
+        }
+
+        return res.status(500).json({
+            message: "Transaction failed, please retry"
         })
-
     }
 
-
-    /**
- * 10. Send email notification
- */
-    try {
-        const senderAccount = await accountModel
-            .findById(fromAccount)
-            .populate("user")
-
-        const receiverAccount = await accountModel
-            .findById(toAccount)
-            .populate("user")
-
-        console.log("Sender:", senderAccount?.user?.email)
-        console.log("Receiver:", receiverAccount?.user?.email)
-
-        // DEBIT mail to sender
-        if (senderAccount?.user?.email) {
-            await emailService.sendTransactionEmail(
-                senderAccount.user.email,
-                senderAccount.user.name,
-                amount,
-                toAccount,
-                "DEBIT"
-            )
-        }
-
-        // CREDIT mail to receiver
-        if (receiverAccount?.user?.email) {
-            await emailService.sendTransactionEmail(
-                receiverAccount.user.email,
-                receiverAccount.user.name,
-                amount,
-                fromAccount,
-                "CREDIT"
-            )
-        }
-
-    } catch (err) {
-        console.error("Email sending failed:", err)
-    }
-
-
-
-
-
-
-
-
-
-    return res.status(201).json({
+    // Respond immediately after commit so client does not timeout.
+    res.status(201).json({
         message: "Transaction completed successfully",
         transaction: transaction
     })
 
+    // 10. Send emails in background (optimized).
+    ; (async () => {
+        try {
+            const senderAccount = await accountModel.findById(fromAccount).populate("user")
+            const receiverAccount = await accountModel.findById(toAccount).populate("user")
+
+            await Promise.allSettled([
+                senderAccount?.user?.email
+                    ? emailService.sendTransactionEmail(
+                        senderAccount.user.email,
+                        senderAccount.user.name,
+                        amount,
+                        toAccount,
+                        "DEBIT"
+                    )
+                    : Promise.resolve(),
+                receiverAccount?.user?.email
+                    ? emailService.sendTransactionEmail(
+                        receiverAccount.user.email,
+                        receiverAccount.user.name,
+                        amount,
+                        fromAccount,
+                        "CREDIT"
+                    )
+                    : Promise.resolve(),
+            ])
+        } catch (err) {
+            console.error("Email sending failed:", err)
+        }
+    })()
 }
 
 async function createInitialFundsTransaction(req, res) {
@@ -282,14 +262,14 @@ async function createInitialFundsTransaction(req, res) {
         status: "PENDING"
     })
 
-    const debitLedgerEntry = await ledgerModel.create([{
+    await ledgerModel.create([{
         account: fromUserAccount._id,
         amount: amount,
         transaction: transaction._id,
         type: "DEBIT"
     }], { session })
 
-    const creditLedgerEntry = await ledgerModel.create([{
+    await ledgerModel.create([{
         account: toAccount,
         amount: amount,
         transaction: transaction._id,
@@ -306,8 +286,6 @@ async function createInitialFundsTransaction(req, res) {
         message: "Initial funds transaction completed successfully",
         transaction: transaction
     })
-
-
 }
 
 module.exports = {
