@@ -10,12 +10,12 @@ const transactionRoutes = require("./routes/transaction.routes")
 
 //Routes//
 
-app.use(express.json())
+
 
 
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://money-ledger-fe.vercel.app/"
+  "https://money-ledger-fe.vercel.app"
 //   "https://your-frontend-domain.com", // replaced with real deployed frontend now
 ];
 
@@ -36,7 +36,7 @@ app.options("/{*any}", cors(corsOptions));
 
 
 
-
+app.use(express.json())
 app.use(cookieParser())
 
 //User Routes//
