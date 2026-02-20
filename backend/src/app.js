@@ -15,7 +15,8 @@ app.use(express.json())
 
 const allowedOrigins = [
   "http://localhost:5173",
-//   "https://your-frontend-domain.com", // replace with real deployed frontend
+  "https://money-ledger-fe.vercel.app/"
+//   "https://your-frontend-domain.com", // replaced with real deployed frontend now
 ];
 
 const corsOptions = {
